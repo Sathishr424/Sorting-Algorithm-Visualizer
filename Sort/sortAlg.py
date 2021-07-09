@@ -77,11 +77,7 @@ class Button:
         
     def render(self):
         if self.collision: renderTextWithRectangle(self.name, self.pos, self.txtSize, "Times", False, black, BTN_PRESSED_COLOR, False)
-        else: renderTextWithRectangle(self.name, self.pos, self.txtSize, "Times", False, black, BTN_COLOR, False)   
-        
-        #if self.collision: pygame.draw.rect(gameDisplay, (206,198,235), self.rect.get())
-        #else: pygame.draw.rect(gameDisplay, (235,232,247), self.rect.get())
-        #renderText(self.name, (self.rect.x+(self.rect.w/2),self.rect.y+(self.rect.h/2)), 15, "Times", False, True)
+        else: renderTextWithRectangle(self.name, self.pos, self.txtSize, "Times", False, black, BTN_COLOR, False)
     
     def update(self):
         mouse = pygame.mouse.get_pos()
@@ -135,6 +131,7 @@ class SortingVisual:
                 pygame.draw.rect(gameDisplay, self.options[1][self.options[0].index(i)], [int(left+(self.size*(i+1))), (top+box[1]), self.size, -int(self.arr[i]*self.scale)])
             else:
                 pygame.draw.rect(gameDisplay, (255,174,94), [int(left+(self.size*(i+1))), (top+box[1]), self.size, -int(self.arr[i]*self.scale)])
+            pygame.draw.rect(gameDisplay, (63,63,63), [int(left+(self.size*(i+1))), (top+box[1]-1)-int(self.arr[i]*self.scale), self.size, 1])
             
             left+=1
 
@@ -381,6 +378,89 @@ class SelectionSort:
             if self.lastPos % 2 == 0: return False
         return False
     
+class HeapSort:
+    def __init__(self,arr):
+        self.arr = arr
+        self.n = len(arr)
+        self.lastMaxHeapIndex = (self.n//2) + 1
+        self.lastHeapifyIndex = 0
+        self.lastHeapSortIndex = self.n
+        self.isMaxheapFin = False
+        self.mode = 0
+        self.color = 200/self.n
+        self.finAnim = 50
+    
+    def checkIfSorted(self,arr):
+        for i in range(1,len(arr)):
+            if arr[i-1] > arr[i]:
+                return False
+        return True      
+    
+    def heapify(self,arr,i,n):
+        mx = i
+        l = (2*i)+1
+        r = (2*i)+2
+        if l < n and arr[l] > arr[mx]: mx = l
+        if r < n and arr[r] > arr[mx]: mx = r
+        
+        if mx != i:
+            arr[mx],arr[i] = arr[i],arr[mx]
+            sv.arr = arr
+            if self.isMaxheapFin:
+                x = [mx,i]
+                y = [(255,40,40),(13,91,138)]
+                for i in range(self.n,len(self.arr)):
+                    clr = 55+int((len(self.arr)-1-i)*self.color)
+                    x.append(i)
+                    y.append((clr,255,clr))
+                sv.options = [x,y]            
+            else: sv.options = [[mx,i],[(255,40,40),(13,91,138)]]
+            self.lastHeapifyIndex = mx
+            self.mode = 1
+            return False
+        if self.isMaxheapFin: self.mode = 2
+        else: self.mode = 0
+        return False
+    
+    def sort(self):
+        if self.mode == 0:
+            if self.checkIfSorted(self.arr): return True
+            if self.lastMaxHeapIndex <= 1: 
+                self.mode = 2
+                self.isMaxheapFin = True
+            self.lastMaxHeapIndex-=1
+            return self.heapify(self.arr,self.lastMaxHeapIndex,self.n)
+        elif self.mode == 1:
+            return self.heapify(self.arr,self.lastHeapifyIndex,self.n)
+        elif self.mode == 2:
+            if self.lastHeapSortIndex == 1: 
+                self.mode = 3
+                return False
+            self.lastHeapSortIndex-=1
+            #x = [0,self.lastHeapSortIndex]
+            #y = [(255,40,40),(13,91,138)]
+            #for i in range(self.n,len(self.arr)): 
+                #x.append(i)
+                #y.append((91,255,91))
+            #sv.options = [x,y]
+            self.arr[0],self.arr[self.lastHeapSortIndex] = self.arr[self.lastHeapSortIndex],self.arr[0]
+            sv.arr = self.arr
+            self.n = self.lastHeapSortIndex
+            return self.heapify(self.arr,0,self.lastHeapSortIndex)
+        elif self.mode == 3:
+            if self.finAnim <= 0: return True
+            else:
+                x = []
+                y = []
+                for i in range(len(self.arr)):
+                    clr = 55+int((len(self.arr)-1-i)*self.color)
+                    x.append(i)
+                    if self.finAnim % 10 == 0: y.append((0,255,0))
+                    else: y.append((150,255,150))
+                sv.options = [x,y]   
+                self.finAnim -= 2
+            
+                             
 class Handler:
     def __init__(self):
         self.running = False
@@ -388,23 +468,39 @@ class Handler:
         self.sorting = None
         self.sTime = time.time()
         self.eTime = self.sTime
+        self.lastMode = "None"
+        self.pauseTime = self.sTime
     
     def render(self):
         for bnt in btns: bnt.render()
         sv.render()
     
+    def getTime(self):
+        tme = int((self.eTime - self.sTime) * 1)
+        minute = str(int(tme / 60))
+        sec = str(tme - (int(tme / 60) * 60))
+        if len(sec) == 1: sec = "0" + sec
+        if len(minute) == 1: minute = "0" + minute
+        return str(minute) + ":" + str(sec)
+    
+    def refSort(self,name):
+        self.mode = name
+        sv.sorted = False
+        btns[-1].name = 'Pause'
+        self.lastMode = 'None'
+        self.sTime = time.time()        
+    
     def update(self):
         global size
-        self.eTime = time.time()
         if self.mode != 'None':
-            if self.eTime - self.sTime >= .00:
-                self.sTime = self.eTime
-                if self.sorting.sort():
-                    sv.sorted = True
-                    self.mode = 'None'
-                    sv.options = []
-                    self.sorting = None
+            self.eTime = time.time() 
+            if self.sorting.sort():               
+                sv.sorted = True
+                self.mode = 'None'
+                sv.options = []
+                self.sorting = None
             #else: self.sTime = self.eTime
+        btns[0].name = self.getTime()
         for btn in btns:
             if btn.update()==2:
                 if btn.name.find('Size') != -1 and size > 3:
@@ -417,25 +513,23 @@ class Handler:
                     sv.refresh(size)                
             elif btn.update()==1:
                 if btn.name == "Bubble":
-                    self.mode = 'Bubble'
-                    sv.sorted = False
                     self.sorting = BubbleSort(sv.arr)
+                    self.refSort(btn.name)
                 elif btn.name == 'Insertion':
-                    self.mode = 'Insertion'
-                    sv.sorted = False
                     self.sorting = InsertionSort(sv.arr)
+                    self.refSort(btn.name)
                 elif btn.name == 'Merge':
-                    self.mode = 'Merge'
-                    sv.sorted = False
                     self.sorting = MergeSort(sv.arr)
+                    self.refSort(btn.name)
                 elif btn.name == 'Selection':
-                    self.mode = 'Selection'
-                    sv.sorted = False
                     self.sorting = SelectionSort(sv.arr)
+                    self.refSort(btn.name)
                 elif btn.name == 'Quick':
-                    self.mode = 'Quick'
-                    sv.sorted = False
                     self.sorting = QuickSort(sv.arr)
+                    self.refSort(btn.name)
+                elif btn.name == 'Heap':
+                    self.sorting = HeapSort(sv.arr)
+                    self.refSort(btn.name)
                 elif btn.name == 'Shuffle':
                     sv.shuffleArr()
                     sv.sorted = True
@@ -456,20 +550,15 @@ class Handler:
                     self.sorting = None                    
                     btn.name = "Size:"+str(size)
                     sv.refresh(size)
-            
-def bubbleSort(arr):
-    global lastPos
-    change = False
-    for i in range(lastPos,len(arr)-1):
-        if arr[i] > arr[i+1]:
-            arr[i],arr[i+1] = arr[i+1],arr[i]
-            lastPos = i
-            change = True
-            return arr, not change
-    if lastPos != 0: 
-        lastPos = 0
-        return bubbleSort(arr)
-    return arr, not change
+                elif btn.name == "Pause":
+                    btn.name = ' Play '
+                    self.lastMode = self.mode
+                    if self.mode != 'None': self.pauseTime = time.time()
+                    self.mode = 'None'
+                elif btn.name == " Play ":
+                    btn.name = 'Pause'
+                    if self.lastMode != 'None': self.sTime += time.time() - self.pauseTime
+                    self.lastMode, self.mode = self.mode, self.lastMode
 
 sv = SortingVisual(size)
 bubbleBtn = Button("Bubble", (15,15), 15)
@@ -477,13 +566,17 @@ insertionBtn = Button("Insertion", (int(bubbleBtn.rect[0]+bubbleBtn.rect[2]+15),
 mergeBtn = Button("Merge", (int(insertionBtn.rect[0]+insertionBtn.rect[2]+15),15), 15)
 selectionBtn = Button("Selection", (int(mergeBtn.rect[0]+mergeBtn.rect[2]+15),15), 15)
 quickBtn = Button("Quick", (int(selectionBtn.rect[0]+selectionBtn.rect[2]+15),15), 15)
+HeapBtn = Button("Heap", (int(quickBtn.rect[0]+quickBtn.rect[2]+15),15), 15)
 
 shuffle = Button("Shuffle", (15,box[1]+70), 15)
 randomNums = Button("Random", (int(shuffle.rect[0]+shuffle.rect[2]+15),box[1]+70), 15)
-
 sizeBtn = Button("Size:"+str(size), (int(randomNums.rect[0]+randomNums.rect[2]+15),box[1]+70), 15)
 
-btns = [bubbleBtn, insertionBtn, mergeBtn, selectionBtn, quickBtn, shuffle, randomNums, sizeBtn]
+pauseBtn = Button("Pause", (h_display-quickBtn.rect[2],15), 15)
+
+durationBtn = Button("00:00", (h_display-quickBtn.rect[2],box[1]+70), 15)
+
+btns = [durationBtn, bubbleBtn, insertionBtn, mergeBtn, selectionBtn, quickBtn, HeapBtn, shuffle, randomNums, sizeBtn, pauseBtn]
 
 handler = Handler()
 
